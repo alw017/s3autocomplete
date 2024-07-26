@@ -6,7 +6,9 @@ To set a custom list of buckets to autocomplete, set the `S3ACPL_BUCKETS` enviro
 
 You can also use the `.s3autocomplete_cfg` located in your home directory. Example: BUCKETS=bucket1 bucket2 bucket3
 
-# TO INSTALL:
+# To Install:
+
+This script requires boto3. Use `pip install boto3` to install.
 
 Setup your aws credentials. You can either use `aws configure` or add it manually in the default location `.aws/credentials`.
 
