@@ -1,0 +1,77 @@
+#!/bin/bash
+
+_S3_AUTO_COMPLETE_SCRIPT_DIR=$(dirname $(realpath ${BASH_SOURCE[0]}))
+
+# Modified __ltrim_colon_completions from bash_completion
+# This function takes a list of completions and trims all text up to the first quote. 
+# Note: this function assumes that you have already called __ltrim_colon_completions
+# sample input: $1 = s3://example-bucket/dir1/file.txt
+function __ltrim_quote_completions() {
+	if [[ $1 == *\'* ]] ; then
+		# grabs all text to the left of the last forward slash, including the forward slash. example: s3:/example-bucket/dir1/
+		local quote_prefix=${1%"${1##*/}"}
+		# grabs all text to the left of the last colon, including the colon. example: s3:
+		local colon=${1%"${1##*:}"}
+		# removes colon from quote prefix. example: /example-bucket/dir1/
+		quote_prefix=${quote_prefix#"$colon"}
+		if [[ $1 == *\'*\' ]] ; then # case where you have a completed quoted filename.
+			COMPREPLY[0]="${quote_prefix}'${COMPREPLY[0]#"$quote_prefix"}'"
+
+			# disable filename completion to prevent deletion of single quotes around filename.
+			if [[ $COMP_TYPE -eq 9 ]] ; then
+				compopt +o filenames +o nospace
+			fi
+			return
+		fi
+		local i=${#COMPREPLY[*]}
+		while ((i-- > 0)); do
+			COMPREPLY[i]=${COMPREPLY[i]#"$quote_prefix"}
+		done
+	fi
+}
+
+function _s3autocomplete {
+	COMPREPLY=()
+	local PREFIX="s3://"
+	local oldIFS="$IFS"
+	IFS=$'\n'
+	# debug IFS print command : printf %s "$IFS" | od -vtc -to1
+	compopt -o filenames -o nospace
+
+	# grabs the last argument given to the function while not considering ":" as a separator.
+	local cur
+	_get_comp_words_by_ref -n : cur
+
+	local buckets
+	if ! [[ -z $S3ACPL_BUCKETS ]] ; then
+		buckets="$S3ACPL_BUCKETS"
+	elif [[ -f $HOME/.s3autocomplete_cfg ]] ; then
+		config=$(cat $HOME/.s3autocomplete_cfg | grep BUCKETS)
+		buckets=${config#"BUCKETS="}
+	else
+		buckets=""
+		touch $HOME/.s3autocomplete_cfg
+	fi
+	# calls the completer script to generate valid s3 paths.
+	local OUTPUT=$( python3 $_S3_AUTO_COMPLETE_SCRIPT_DIR/completer.py $cur "$buckets" )
+
+	# workaround to -o filenames causing "s3://" to be autocompleted as "s3\://".	
+	if [[ "$OUTPUT" == "$PREFIX" ]] ; then
+		compopt +o filenames
+	fi	
+
+	COMPREPLY=( $( compgen -W "$OUTPUT" -- $cur ) )
+	#editing COMPREPLY elements to work around quirks from readline completions in bash.
+	__ltrim_colon_completions "$cur"
+	__ltrim_quote_completions "$cur"
+
+	IFS="$oldIFS"
+}
+
+# dummy function, delete later.
+function devtest {
+	echo "devtest called"
+}
+
+
+complete -o nospace -F _s3autocomplete devtest 
