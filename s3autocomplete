@@ -36,6 +36,8 @@ function _s3autocomplete {
 	local oldIFS="$IFS"
 	IFS=$'\n'
 	# debug IFS print command : printf %s "$IFS" | od -vtc -to1
+	# reset all completion options.
+	compopt +o bashdefault +o default +o dirnames +o filenames +o fullquote +o noquote +o nosort +o nospace +o plusdirs
 	compopt -o filenames -o nospace
 
 	# grabs the last argument given to the function while not considering ":" as a separator.
@@ -68,10 +70,21 @@ function _s3autocomplete {
 	IFS="$oldIFS"
 }
 
-# dummy function, delete later.
-function devtest {
-	echo "devtest called"
+
+function _bash_s3autocomplete_wrapper {
+	local cur
+	_get_comp_words_by_ref -n : cur
+    
+	if [[ "$cur" == "s3://"* ]] ; then
+		_s3autocomplete
+	else 
+    	__git_wrap__git_main $1 $2 $3
+		# or if there is no predefined auto complete method:
+		# COMPREPLY=()
+	fi
 }
 
 
-complete -o nospace -F _s3autocomplete devtest 
+# by default _s3autocomplete expects -o nospace to be activated.
+
+complete -o bashdefault -o default -o nospace -F _bash_default_wrapper git
